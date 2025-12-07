@@ -182,7 +182,7 @@ def read_aggregated_csv(csv_path):
     return data
 
 
-def generate_visualizations(all_data, aggregated, output_dir):
+def generate_visualizations(all_data, aggregated, output_dir, global_phrases=None):
     """Génère les visualisations et les sauvegarde."""
     if not MATPLOTLIB_AVAILABLE:
         logging.warning("Matplotlib non disponible, visualisations ignorées")
@@ -402,10 +402,33 @@ def generate_visualizations(all_data, aggregated, output_dir):
     except Exception as e:
         logging.warning(f"Erreur lors de la génération de la heatmap: {e}")
     
+    # 6. Top phrases phares globales
+    if global_phrases:
+        logging.info("Génération: Top phrases phares...")
+        try:
+            # Prendre les 15 meilleures phrases pour la visualisation
+            top_phrases = global_phrases[:15]
+            
+            if top_phrases:
+                phrases_text = [p[0][:50] + "..." if len(p[0]) > 50 else p[0] for p in top_phrases]
+                phrases_scores = [p[3] for p in top_phrases]
+                
+                plt.figure(figsize=(14, 8))
+                plt.barh(range(len(phrases_text)), phrases_scores, color='mediumpurple', edgecolor='black')
+                plt.yticks(range(len(phrases_text)), phrases_text, fontsize=10)
+                plt.xlabel('Score de pertinence (fréquence × longueur)', fontsize=12)
+                plt.title('Top 15 phrases phares (agrégation globale)', fontsize=14, fontweight='bold')
+                plt.gca().invert_yaxis()
+                plt.tight_layout()
+                plt.savefig(viz_dir / 'top_phrases_globales.png', dpi=150, bbox_inches='tight')
+                plt.close()
+        except Exception as e:
+            logging.warning(f"Erreur lors de la génération du graphique de phrases: {e}")
+    
     logging.info(f"Visualisations sauvegardées dans {viz_dir}")
 
 
-def generate_pdf_report(all_data, aggregated, output_dir, data_global):
+def generate_pdf_report(all_data, aggregated, output_dir, data_global, global_phrases=None):
     """Génère un rapport PDF complet."""
     if not REPORTLAB_AVAILABLE:
         logging.warning("reportlab non disponible, génération PDF ignorée")
@@ -539,6 +562,39 @@ def generate_pdf_report(all_data, aggregated, output_dir, data_global):
         
         content.append(PageBreak())
         
+        # ========== PAGE: PHRASES PHARES GLOBALES ==========
+        if global_phrases:
+            content.append(Paragraph("Analyse Globale - Top 30 Phrases Phares", heading_style))
+            content.append(Spacer(1, 0.2*inch))
+            
+            phrases_data = [['Rang', 'Phrase phare', 'Fréquence', 'Score']]
+            for i, (phrase, freq, length, score) in enumerate(global_phrases[:30], 1):
+                phrases_data.append([
+                    str(i),
+                    str(phrase)[:60] + ('...' if len(phrase) > 60 else ''),
+                    str(freq),
+                    f"{score:.2f}"
+                ])
+            
+            phrases_table = Table(phrases_data, colWidths=[0.5*inch, 3.2*inch, 0.9*inch, 1*inch])
+            phrases_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7030a0')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('ALIGN', (2, 0), (2, -1), 'CENTER'),
+                ('ALIGN', (3, 0), (3, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f0f0')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')])
+            ]))
+            content.append(phrases_table)
+            
+            content.append(PageBreak())
+        
         # ========== PAGES: VISUALISATIONS ==========
         viz_dir = Path(output_dir) / "visualisations"
         if viz_dir.exists():
@@ -547,6 +603,7 @@ def generate_pdf_report(all_data, aggregated, output_dir, data_global):
             
             viz_files = [
                 ('top20_global.png', 'Top 20 Mots-clés et N-grams'),
+                ('top_phrases_globales.png', 'Top 15 Phrases Phares'),
                 ('wordcloud.png', 'Nuage de Mots (Word Cloud)'),
                 ('reseau_semantique.png', 'Réseau Sémantique - Co-occurrences'),
                 ('heatmap_keywords_pages.png', 'Présence des Mots-clés par Page'),
@@ -670,18 +727,26 @@ def process_urls(urls, temp_dir, output_dir, timeout=10, verbose=False, generate
     logging.info("Agrégation des mots-clés globaux...")
     aggregated = aggregate_keywords(all_data)
     
+    # 4b. Agrégation des phrases phares globales
+    logging.info("Agrégation des phrases phares globales...")
+    global_phrases = aggregate_phrases(all_data, top_n=50)
+    
     # 5. Écrire le CSV d'agrégation
     agg_csv_path = output_path / "analyse_globale.csv"
     save_aggregated_csv(aggregated, agg_csv_path, top_n=50)
     
+    # 5b. Écrire le CSV des phrases phares globales
+    phrases_csv_path = output_path / "phrases_globales.csv"
+    save_global_phrases_csv(global_phrases, phrases_csv_path)
+    
     # 6. Générer les visualisations
     logging.info("Génération des visualisations...")
-    generate_visualizations(all_data, aggregated, output_path)
+    generate_visualizations(all_data, aggregated, output_path, global_phrases)
     
     # 7. Générer le PDF si demandé
     if generate_pdf:
         data_global = read_aggregated_csv(agg_csv_path)
-        generate_pdf_report(all_data, aggregated, output_path, data_global)
+        generate_pdf_report(all_data, aggregated, output_path, data_global, global_phrases)
     
     # 8. Créer un fichier récapitulatif
     summary_path = output_path / "log.txt"
@@ -693,11 +758,13 @@ def process_urls(urls, temp_dir, output_dir, timeout=10, verbose=False, generate
         f.write(f"Fichiers générés:\n")
         f.write(f"  - analyse_complete.csv   : Données complètes pour toutes les pages\n")
         f.write(f"  - analyse_globale.csv    : Top 50 des mots-clés agrégés\n")
+        f.write(f"  - phrases_globales.csv   : Top 50 des phrases phares agrégées\n")
         f.write(f"  - log.txt                : Ce fichier (récapitulatif de l'analyse)\n")
         if generate_pdf:
             f.write(f"  - rapport_analyse.pdf    : Rapport PDF complet\n")
         f.write(f"  - visualisations/        : Graphiques PNG\n")
-        f.write(f"      • top20_global.png   : Graphique en barres des top 20\n")
+        f.write(f"      • top20_global.png   : Graphique en barres des top 20 mots-clés\n")
+        f.write(f"      • top_phrases_globales.png   : Graphique des top 15 phrases phares\n")
         f.write(f"      • distribution_liens.png   : Histogramme de distribution des liens\n")
         f.write(f"      • wordcloud.png      : Nuage de mots\n")
         f.write(f"      • reseau_semantique.png   : Réseau de co-occurrences\n")
@@ -711,6 +778,60 @@ def process_urls(urls, temp_dir, output_dir, timeout=10, verbose=False, generate
     print(f"  - {aggregated.most_common(1)[0][1] if aggregated else 0} occurrences du terme le plus fréquent")
     print(f"  - CSV et visualisations générés")
     print(f"{'='*60}")
+
+
+def aggregate_phrases(all_data, top_n=30):
+    """Agrège les phrases phares de toutes les pages et retourne les plus pertinentes.
+    
+    Critères de pertinence :
+    - Fréquence d'apparition
+    - Longueur (phrases plus longues sont généralement plus informatiques)
+    - Score combiné: fréquence * longueur relative
+    
+    Args:
+        all_data: Liste des dictionnaires d'analyse de chaque page
+        top_n: Nombre de phrases à retourner
+        
+    Returns:
+        Liste des (phrase, score) triées par pertinence
+    """
+    phrase_freq = Counter()
+    phrase_lengths = {}
+    
+    for data in all_data:
+        phrases_str = data.get('Phrases phares', '')
+        if phrases_str:
+            phrases = [p.strip() for p in str(phrases_str).split('|') if p.strip()]
+            for phrase in phrases:
+                phrase_freq[phrase] += 1
+                if phrase not in phrase_lengths:
+                    phrase_lengths[phrase] = len(phrase.split())
+    
+    # Calculer un score combiné: fréquence * longueur normalisée
+    max_length = max(phrase_lengths.values()) if phrase_lengths else 1
+    scored_phrases = []
+    
+    for phrase, freq in phrase_freq.items():
+        length = phrase_lengths.get(phrase, 0)
+        # Score = fréquence × (longueur / longueur_max) pour favoriser les phrases plus longues
+        score = freq * (length / max_length)
+        scored_phrases.append((phrase, freq, length, score))
+    
+    # Trier par score décroissant
+    scored_phrases.sort(key=lambda x: x[3], reverse=True)
+    
+    return scored_phrases[:top_n]
+
+
+def save_global_phrases_csv(scored_phrases, output_path):
+    """Sauvegarde les phrases phares agrégées dans un CSV."""
+    with open(output_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Rang', 'Phrase phare', 'Fréquence', 'Longueur (mots)', 'Score'])
+        for i, (phrase, freq, length, score) in enumerate(scored_phrases, 1):
+            writer.writerow([i, phrase, freq, length, f"{score:.2f}"])
+    
+    logging.info(f"CSV des phrases phares globales sauvegardé: {output_path}")
 
 
 def main():

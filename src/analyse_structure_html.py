@@ -93,7 +93,7 @@ def get_visible_text(soup):
 ########################################
 # 2. Extraction des n‑grams
 ########################################
-def extract_ngrams(text, n_min=1, n_max=3):
+def extract_ngrams(text, n_min=1, n_max=5):
     text = (text or "").lower()
     # autoriser chiffres et apostrophes dans les mots
     words = [w for w in re.findall(r"[0-9a-zA-Zàâçéèêëîïôûùüÿñæœ''-]+", text)
@@ -250,7 +250,7 @@ def _build_arg_parser():
     p.add_argument("-u", "--url", default="", help="URL de base (pour normaliser les liens internes)")
     p.add_argument("-o", "--output", default="analyse.csv", help="Fichier CSV de sortie")
     p.add_argument("--nmin", type=int, default=1, help="N-gram min (par défaut 1)")
-    p.add_argument("--nmax", type=int, default=3, help="N-gram max (par défaut 3)")
+    p.add_argument("--nmax", type=int, default=5, help="N-gram max (par défaut 5)")
     p.add_argument("--top", type=int, default=20, help="Nombre de mots-clés dominants à garder")
     p.add_argument("--verbose", action="store_true", help="Mode verbeux (logging DEBUG)")
     return p
