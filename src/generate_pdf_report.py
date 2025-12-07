@@ -309,7 +309,7 @@ def create_pdf_report(analysis_dir, output_pdf):
     • Utiliser le word cloud pour visualiser l'identité thématique globale<br/><br/>
     
     <i>Ce rapport a été généré automatiquement le {datetime.now().strftime("%d %B %Y à %H:%M:%S")}
-    par l'outil d'analyse sémantique Facta Nova.</i>
+    par l'outil d'analyse sémantique sycod.</i>
     """
     
     content.append(Paragraph(conclusion_text, normal_style))

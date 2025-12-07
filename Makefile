@@ -16,7 +16,7 @@ NC := \033[0m # No Color
 
 help: ## Affiche cette aide
 	@echo "$(BLUE)╔════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║     Facta Nova - Web Semantic Analysis Toolkit             ║$(NC)"
+	@echo "$(BLUE)║          sycod - Web Semantic Analysis Toolkit             ║$(NC)"
 	@echo "$(BLUE)╚════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Usage:$(NC)"

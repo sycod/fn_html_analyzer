@@ -1,4 +1,4 @@
-# Facta Nova – Analyse sémantique Web
+# Analyse sémantique Web
 
 ## Prérequis
 - Python 3 et `pip`
